@@ -47,11 +47,11 @@ jobs:
           wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/corepure64.gz
           wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/modules64.gz
           cd ./DOC && tar xf musl-1.2.1.tar.gz
-          cd musl-1.2.1 && ./configure && make install
+          cd musl-1.2.1 && ./configure && sudo make install
           tar xf /opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz  -C /opt 
           tar xf /opt/aarch64--uclibc--stable-2020.08-1.tar.bz2  -C /opt
           tar xf /opt/output.tar.bz2  -C /opt
-          mv /opt/output /opt/mips64el-linux-musl-gcc730
+          sudo mv /opt/output /opt/mips64el-linux-musl-gcc730
           export PATH=$PATH:/opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu/bin:/opt/aarch64--uclibc--stable-2020.08-1/bin:/opt/mips64el-linux-musl-gcc730/bin >> ~/.bashrc
           source ~/.bashrc
           cd ./INSTALL && sh all_in_one.sh
