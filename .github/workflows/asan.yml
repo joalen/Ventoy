@@ -21,13 +21,15 @@ jobs:
         if: runner.os == 'Linux'
         run: | 
           sudo apt-get update
+          sudo apt-get install -y libvirt-daemon-system-systemd
           sudo apt-get install -y \
               libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev \
                rsync autogen autoconf automake libtool gettext bison binutils \
               flex libdmraid-dev libsdl1.2-dev libpciaccess0 libusb-1.0-0 libusb-dev libfreetype6 libfreetype6-dev \
-              qemu-* virt-* libvirt-* \
+              virt-* libvirt-* \
               libvte-* network-manager libbrlapi-dev libfuse-dev gnu-efi sbsigntool \
-              grub2 xorriso nasm yasm
+              grub2 xorriso nasm yasm 
+              
           
       - name: Build repository 
         run: | 
