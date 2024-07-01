@@ -22,12 +22,12 @@ jobs:
         run: | 
           sudo apt-get update
           sudo apt-get install -y \
-              libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev libc6:i386 libc6-dev:i386 \
-              libmpfr-dev:i386 zlib1g:i386 rsync autogen autoconf automake libtool gettext bison binutils \
+              libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev \
+               rsync autogen autoconf automake libtool gettext bison binutils \
               flex libdmraid-dev libsdl1.2-dev libpciaccess0 libusb-1.0-0 libusb-dev libfreetype6 libfreetype6-dev \
-              fonts-dejavu fonts-dejavu-core fonts-dejavu-extra gnu-freefont-* qemu-kvm virt-* libvirt-* \
-              libvte-* network-manager libbrlapi-dev libfuse-dev ttf-dejavu-core gnu-efi* sbsigntool \
-              iscsi-initiator-utils grub2 xorriso
+              gnu-freefont-* qemu-kvm virt-* libvirt-* \
+              libvte-* network-manager libbrlapi-dev libfuse-dev gnu-efi* sbsigntool \
+              grub2 xorriso nasm yasm
           
       - name: Build repository 
         run: | 
