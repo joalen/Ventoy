@@ -21,6 +21,7 @@ jobs:
         if: runner.os == 'Linux'
         run: | 
           sudo apt-get update
+          sudo apt remove -y libvirt-daemon-system-sysv
           sudo apt-get install -y libvirt-daemon-system-systemd
           sudo apt-get install -y \
               libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev \
