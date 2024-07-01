@@ -1,0 +1,93 @@
+name: Run AddressSanitizer
+
+on:
+  push:
+
+jobs:
+  run-asan:
+    name: '${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2 
+        with:
+          ref: cb209f9b9e02f3fb3a09a6e88d49bcef9f95511f
+
+      - name: Install dependencies for project (Linux)
+        if: runner.os == 'Linux'
+        run: | 
+          sudo apt-get update
+          sudo apt-get install -y \
+              libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev libc6:i386 libc6-dev:i386 \
+              libmpfr-dev:i386 zlib1g:i386 rsync autogen autoconf automake libtool gettext bison binutils \
+              flex libdmraid-dev libsdl1.2-dev libpciaccess0 libusb-1.0-0 libusb-dev libfreetype6 libfreetype6-dev \
+              fonts-dejavu fonts-dejavu-core fonts-dejavu-extra gnu-freefont-* qemu-kvm virt-* libvirt-* \
+              libvte-* network-manager libbrlapi-dev libfuse-dev ttf-dejavu-core gnu-efi* sbsigntool \
+              iscsi-initiator-utils grub2 xorriso
+          
+      - name: Build repository 
+        run: | 
+          wget -P ./DOC https://www.fefe.de/dietlibc/dietlibc-0.34.tar.xz
+          wget -P ./DOC https://musl.libc.org/releases/musl-1.2.1.tar.gz
+          wget -P ./GRUB2 https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz
+          wget -P ./EDK2 https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911
+          wget -P ./ExFAT https://codeload.github.com/relan/exfat/zip/v1.3.0
+          wget -P ./ExFAT https://codeload.github.com/libfuse/libfuse/zip/fuse-2.9.9
+          wget -P /opt/ https://releases.linaro.org/components/toolchain/binaries/7.4-2019.02/aarch64-linux-gnu/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz
+          wget -P /opt/ https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--uclibc--stable-2020.08-1.tar.bz2
+          wget -P /opt/ https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz
+          wget -P /opt/ https://github.com/ventoy/musl-cross-make/releases/download/latest/output.tar.bz2
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/vmlinuz64
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/corepure64.gz
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/modules64.gz
+          cd ./DOC && tar xf musl-1.2.1.tar.gz
+          cd musl-1.2.1 && ./configure && make install
+          tar xf /opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz  -C /opt 
+          tar xf /opt/aarch64--uclibc--stable-2020.08-1.tar.bz2  -C /opt
+          tar xf /opt/output.tar.bz2  -C /opt
+          mv /opt/output /opt/mips64el-linux-musl-gcc730
+          export PATH=$PATH:/opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu/bin:/opt/aarch64--uclibc--stable-2020.08-1/bin:/opt/mips64el-linux-musl-gcc730/bin >> ~/.bashrc
+          source ~/.bashrc
+          cd ./INSTALL && sh all_in_one.sh
+          
+
+      - name: Install Address Sanitizer dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y clang-14 libclang-14-dev llvm-14 llvm-14-dev llvm-14-tools llvm-14-linker-tools
+      
+      - name: Run Google Address Sanitizer
+        run: |
+          #!/bin/bash
+
+          files=$(find . -type f)
+          failed_compilations=0
+          successful_compilations=0
+          TIMEOUT_DURATION=60
+
+          for file in $files; do
+              if [[ "$file" == *.c || "$file" == *.cpp ]]; then
+                  include_dirs=$(find . -name '*.h' -exec dirname {} + | sort -u | sed 's/^/-I /')
+                  clang -I "$include_dirs" -fsanitize=address -O1 -fno-omit-frame-pointer -fno-common -fsanitize-recover=address -g "$file" -o ./compiled.out > compilation.log 2>&1
+                    if [ $? -eq 0 ]; then
+                        timeout $TIMEOUT_DURATION ./compiled.out
+                        exit_status=$?
+                          if [ $exit_status -ne 0 ]; then
+                              ((successful_compilations += 1))
+                              cat compilation.log
+                              echo "--------------------------------------------------"
+                          else
+                              ((failed_compilations += 1))
+                          fi
+                    else
+                        ((failed_compilations += 1))
+                    fi
+                    rm -f ./compiled.out
+              fi
+          done
+
+          echo "Address Sanitizer Failures: $failed_compilations"
+          echo "Address Sanitizer Successes: $successful_compilations"
