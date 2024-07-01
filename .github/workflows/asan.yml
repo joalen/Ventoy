@@ -27,8 +27,7 @@ jobs:
               libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev \
                rsync autogen autoconf automake libtool gettext bison binutils \
               flex libdmraid-dev libsdl1.2-dev libpciaccess0 libusb-1.0-0 libusb-dev libfreetype6 libfreetype6-dev \
-              virt-* libvirt-* \
-              libvte-* network-manager libbrlapi-dev libfuse-dev gnu-efi sbsigntool \
+              virt-* libvte-* network-manager libbrlapi-dev libfuse-dev gnu-efi sbsigntool \
               grub2 xorriso nasm yasm 
               
           
