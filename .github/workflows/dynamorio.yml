@@ -1,0 +1,116 @@
+name: Run DynamoRIO
+
+on:
+  push:
+
+jobs:
+  run-drmemory:
+    name: '${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4 
+        with:
+          ref: cb209f9b9e02f3fb3a09a6e88d49bcef9f95511f
+
+      - name: Install dependencies for project (Linux)
+        if: runner.os == 'Linux'
+        run: | 
+          sudo apt-get update
+          sudo apt remove -y libvirt-daemon-system-sysv
+          sudo apt-get install -y libvirt-daemon-system-systemd
+          sudo apt-get install -y \
+              libxpm4 net-tools bzip2 wget vim gcc g++ samba dos2unix libc6-dev \
+               rsync autogen autoconf automake libtool gettext bison binutils \
+              flex libdmraid-dev libsdl1.2-dev libpciaccess0 libusb-1.0-0 libusb-dev libfreetype6 libfreetype6-dev \
+              virt-* libvte-* network-manager libbrlapi-dev libfuse-dev gnu-efi sbsigntool \
+              grub2 xorriso nasm yasm 
+          
+      - name: Build repository 
+        run: | 
+          wget -P ./DOC https://www.fefe.de/dietlibc/dietlibc-0.34.tar.xz
+          wget -P ./DOC https://musl.libc.org/releases/musl-1.2.1.tar.gz
+          wget -P ./GRUB2 https://ftp.gnu.org/gnu/grub/grub-2.04.tar.xz
+          wget -P ./EDK2 https://codeload.github.com/tianocore/edk2/zip/edk2-stable201911
+          wget -P ./ExFAT https://codeload.github.com/relan/exfat/zip/v1.3.0
+          wget -P ./ExFAT https://codeload.github.com/libfuse/libfuse/zip/fuse-2.9.9
+          wget -P /opt/ https://releases.linaro.org/components/toolchain/binaries/7.4-2019.02/aarch64-linux-gnu/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz
+          wget -P /opt/ https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--uclibc--stable-2020.08-1.tar.bz2
+          wget -P /opt/ https://github.com/ventoy/vtoytoolchain/releases/download/1.0/mips-loongson-gcc7.3-2019.06-29-linux-gnu.tar.gz
+          wget -P /opt/ https://github.com/ventoy/musl-cross-make/releases/download/latest/output.tar.bz2
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/vmlinuz64
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/corepure64.gz
+          wget -P ./LiveCD/ISO/EFI/boot http://www.tinycorelinux.net/11.x/x86_64/release/distribution_files/modules64.gz
+          cd ./DOC && tar xf musl-1.2.1.tar.gz
+          cd musl-1.2.1 && ./configure && sudo make install
+          tar xf /opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu.tar.xz  -C /opt 
+          tar xf /opt/aarch64--uclibc--stable-2020.08-1.tar.bz2  -C /opt
+          tar xf /opt/output.tar.bz2  -C /opt
+          sudo mv /opt/output /opt/mips64el-linux-musl-gcc730
+          export PATH=$PATH:/opt/gcc-linaro-7.4.1-2019.02-x86_64_aarch64-linux-gnu/bin:/opt/aarch64--uclibc--stable-2020.08-1/bin:/opt/mips64el-linux-musl-gcc730/bin >> ~/.bashrc
+          source ~/.bashrc
+        continue-on-error: true 
+
+      - name: Install Dr. Memory
+        if: runner.os == 'Linux'
+        run: | 
+          sudo apt-get update
+          sudo apt-get install -y libunwind8
+          wget -P /tmp/ https://github.com/DynamoRIO/dynamorio/releases/download/release_10.0.0/DynamoRIO-Linux-10.0.0.tar.gz && tar -xzf /tmp/DynamoRIO-Linux-10.0.0.tar.gz -C /tmp/
+           
+      - name: Run DynamoRIO
+        run: |
+          export DYNAMORIO_HOME="/tmp/DynamoRIO-Linux-10.0.0"
+          export GITHUB_PATH="$DYNAMORIO_HOME/bin64:$DYNAMORIO_HOME/tools/bin64:$GITHUB_PATH"
+          export LD_LIBRARY_PATH="$DYNAMORIO_HOME/lib64:$LD_LIBRARY_PATH"
+          #!/bin/bash
+          set +e 
+
+          echo "=========[DynamoRIO Service Started!]========="
+
+          DIRECTORY=.
+
+          is_executable() {
+            local file="$1"
+            if file "$file" | grep -q 'ELF 64-bit'; then
+              return 0
+            else
+              return 1
+            fi
+          }
+
+          run_with_dynrio_coverage() {
+            local executable="$1"
+            local log_dir="./logs_coverage"
+            mkdir -p "$log_dir"
+            $DYNAMORIO_HOME/bin64/drrun -t drcov -logdir "$log_dir" -dump_text -- "$executable"
+            local exit_status=$?
+            
+            if [ $exit_status -eq 124 ]; then
+              echo "Execution timed out after 45 seconds: $executable"
+            fi
+
+            for log_file in "$log_dir"/drcov.*.log; do
+              $DYNAMORIO_HOME/tools/bin64/drcov2lcov -input "$log_file" -src_filter "$log_dir"
+            done
+          }
+
+          find "$DIRECTORY" -type f -executable | while read -r file; do
+            if is_executable "$file"; then
+              run_with_dynrio_coverage "$file"
+              echo ""
+              echo ""
+            fi
+          done
+
+          echo "=========[DynamoRIO service finished]========="
+  
+      - name: Upload Dr. Memory reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: drmemory-report-${{ github.event.repository.name }}-on-${{ matrix.os }}
+          path: './logs_coverage/*'
